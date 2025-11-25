@@ -1,6 +1,4 @@
-# Asset_Pricing_Project
 
-# Objectif du projet
 
 # 📘 Asset Pricing – Projet ENSAI 2025–2026
 
