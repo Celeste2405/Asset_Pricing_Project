@@ -1,128 +1,42 @@
-# Asset_Pricing_Project
 
-# Objectif du projet
 
-Construire une mini-application Streamlit qui montre comment :
+# 📘 Asset Pricing – Projet ENSAI 2025–2026
 
-on valorise une option européenne avec le modèle de Black–Scholes (prix + grecques),
+## 🎯 Objectif du projet
 
-on construit une frontière efficiente de Markowitz pour optimiser un portefeuille d’actions,
+Construire, en Python, une **mini-application de pricing** avec interface graphique (Streamlit / Dash)
+qui reproduit les grandes étapes d’un projet de finance de marché :
 
-en utilisant des données de marché réelles ou simulées.
+1. **Extraction de données de marché** : courbe de taux, marchés actions, volatilité implicite.
+2. **Pricing d’instruments de taux “vanille” (sans modèle dynamique)** :
+   - un **bond avec coupons**,
+   - et **un swap OU un future de taux**.
+3. **Implémentation et calibration d’un modèle equity Black–Scholes**.
+4. **Pricing d’un produit optionnel equity avec grecques** (delta, gamma, vega, theta).
+5. **Visualisation et vulgarisation** via une mini-interface graphique pour un utilisateur non technique.
 
-Tout doit être présenté dans une interface simple, manipulable par un utilisateur non spécialiste.
+Ce projet suit exactement les étapes demandées dans le sujet de l’UE Asset Pricing.
 
-# 1. Structure globale du projet
+---
 
-Le projet sera organisé comme ceci :
+## 🧩 Structure du projet
 
+```text
 projet_asset_pricing/
 │
-├── app.py                # Application Streamlit (interface principale)
-├── data/                 # Données (historique actions, courbe de taux…)
-├── models/               # Toute la logique métier
-│   ├── black_scholes.py  # Pricing d’options + grecques
-│   ├── markowitz.py      # Optimisation de portefeuille
-│   └── utils.py          # Fonctions génériques (chargement CSV, stats…)
+├── app.py                  # Application principale (Streamlit / Dash)
 │
-└── README.md             # Explication du projet (ce fichier)
-
-# 2. CONTENU DU CODE
-   
-2.1 Données (data/)
-
-Nous aurons besoin :
-
-d’un historique de prix d’actions (via Yahoo Finance ou CSV),
-
-d’un taux sans risque simple (constant ou issu d’une courbe de taux),
-
-d’une estimation de :
-
-rendements moyens,
-
-volatilités,
-
-corrélations,
-basées sur les rendements historiques.
-Ces données seront utilisées à la fois pour Black–Scholes et pour Markowitz.
-
-2.2 Module Black–Scholes (models/black_scholes.py)
-
-On implémentera :
-
-✔ Prix du call européen
-call_price_bs(S, K, T, r, sigma)
-Grecques principales
-
-delta
-
-gamma
-
-vega
-
-theta
-
-Ces fonctions seront appelées depuis l’interface Streamlit pour afficher :
-
-le prix de l’option,
-
-comment il réagit aux changements des paramètres.
-
-2.3 Module Markowitz (models/markowitz.py)
-
-On implémentera :
-
-✔ Calcul du rendement ↗ et du risque ↔ d’un portefeuille donné
-
-(somme pondérée des rendements + variance/covariance)
-
-✔ Construction de la frontière efficiente
-
-Pour plusieurs objectifs de rendement (ou de risque), on calcule :
-
-le portefeuille de variance minimale,
-
-et on affiche la courbe rendement/risque.
-
-2.4 Interface Streamlit (app.py)
-
-L’app comportera 3 pages :
-
-🟦 Page 1 – Données
-
-Sélectionner une action
-
-Visualiser :
-
-prix historiques,
-
-rendements,
-
-volatilité
-
-Montrer les statistiques de base utilisées dans les modules.
-
-🟥 Page 2 – Pricing d’une option européenne
-
-Saisie des paramètres (S, K, T, taux, volatilité)
-
-Calcul instantané :
-
-prix du call Black–Scholes
-
-delta, gamma, vega, theta
-
-Graphiques interactifs (par exemple prix en fonction de S ou σ)
-
-🟩 Page 3 – Portefeuille de Markowitz
-
-Sélection d’un panier d’actions
-
-Construction de la frontière efficiente
-
-Visualisation :
-
-courbe rendement/risque
+├── data/                   # Données de marché (taux, actions, options)
+│   ├── rates.csv           # Courbe de taux (maturité, taux)
+│   ├── equity_prices.csv   # Prix historiques des actions / indices
+│   └── options.csv         # (optionnel) Prix d'options de marché pour calibration
+│
+├── models/
+│   ├── data_extraction.py  # Extraction, nettoyage et statistiques de base
+│   ├── rates_pricing.py    # Pricing bond + swap/future de taux
+│   ├── equity_model.py     # Modèle Black–Scholes + calibration
+│   └── derivatives_pricing.py  # Produit optionnel equity + grecques
+│
+└── README.md               # Ce fichier
 
 poids du portefeuille optimal
