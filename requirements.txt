@@ -1,0 +1,16 @@
+# Interface
+streamlit
+
+# Manipulation de données
+pandas
+numpy
+
+# Statistiques & optimisation
+scipy
+
+# Graphiques
+matplotlib
+plotly
+
+# Données de marché
+yfinance
