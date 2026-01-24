@@ -1,322 +1,417 @@
 import sys
 from pathlib import Path
-from datetime import datetime, date
 
 import numpy as np
 import pandas as pd
 import streamlit as st
-import plotly.graph_objects as go
-import yfinance as yf
+import matplotlib.pyplot as plt
 
-# ---------------------------------------------------------------------
-# Import projet (robuste quel que soit le dossier d'exécution)
-# ---------------------------------------------------------------------
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from model.vol_surface_model import VolSurfaceBuilder, VolSurfaceConfig
-from model.calibration_model import BlackScholesModel, OptionParams
+from ui.page_docs import show_page_docs
+from model.vol_surface_data import YahooSurfaceConfig, build_yahoo_option_dataset
+from model.vol_surface_builder import SurfaceBuildConfig, VolSurfaceBuilder
+from model.equity_model import bs_call_price, bs_put_price
+from model.sabr_model import SABRCalibrator, sabr_iv_vector
+from model.dupire_model import DupireLocalVol, DupireConfig
 
-
-# ---------------------------------------------------------------------
-# Streamlit config
-# ---------------------------------------------------------------------
+# =========================================================
+# Page config
+# =========================================================
 st.set_page_config(page_title="Vol Surface", layout="wide")
 st.title("3) Vol Surface : σ_imp(K, T)")
-st.write(
-    "Cette page construit une surface de volatilité implicite à partir d’un set de prix d’options.\n\n"
-    "- **A) Simulées** : démo robuste (toujours dispo)\n"
-    "- **B) Yahoo Finance** : données de marché (options chain via yfinance)\n"
-)
-st.info("⚠️ r est un **input utilisateur** (consigne prof).")
+show_page_docs("vol_surface")
 
+builder = VolSurfaceBuilder()
 
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
-def compute_T_years(expiry_str: str, today: date | None = None) -> float:
-    """Convertit une date d'expiration 'YYYY-MM-DD' en maturité T (années)."""
-    if today is None:
-        today = date.today()
-    exp = datetime.strptime(expiry_str, "%Y-%m-%d").date()
-    days = (exp - today).days
-    return max(days / 365.0, 0.0)
-
-
-def yahoo_extract_options(
-    ticker: str,
-    option_side: str,
-    max_expiries: int,
-    use_mid_only: bool,
-    strike_min_mult: float,
-    strike_max_mult: float,
-    min_days_to_expiry: int,
-) -> tuple[pd.DataFrame, float, dict]:
-    """
-    Extrait un tableau d'options depuis Yahoo via yfinance avec filtres qualité.
-    Retourne (df_opts, S_spot, stats)
-    df_opts colonnes: K, T, price_mkt, type
-    """
-    t = yf.Ticker(ticker)
-
-    # Spot robuste
-    try:
-        hist = t.history(period="5d")
-        if hist.empty:
-            raise ValueError("Historique vide pour ce ticker.")
-        S_spot = float(hist["Close"].dropna().iloc[-1])
-    except Exception:
-        info = t.info
-        S_spot = float(info.get("regularMarketPrice", np.nan))
-
-    if not np.isfinite(S_spot) or S_spot <= 0:
-        raise ValueError("Impossible de récupérer un spot valide (S) sur Yahoo.")
-
-    expiries = list(t.options or [])
-    if len(expiries) == 0:
-        raise ValueError("Aucune maturité d’options disponible sur Yahoo pour ce ticker.")
-    expiries = expiries[:max_expiries]
-
-    today = date.today()
-    rows = []
-
-    stats = {
-        "expiries_total": len(expiries),
-        "rows_seen": 0,
-        "kept": 0,
-        "dropped_bad_T": 0,
-        "dropped_bad_strike": 0,
-        "dropped_bad_quotes": 0,
-        "dropped_bad_price": 0,
+# =========================================================
+# Session state init (OBLIGATOIRE)
+# =========================================================
+def init_state():
+    defaults = {
+        "vs_df_opts": None,        # dataset options (Yahoo)
+        "vs_S": None,              # spot (Yahoo)
+        "vol_surface_df": None,    # surface sigma_imp points
+        "vol_surface_mat": None,   # matrice (T x K)
+        "vol_surface_meta": None,  # dict meta
+        "vs_last_signature": None  # pour reset auto
     }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
-    K_min = strike_min_mult * S_spot
-    K_max = strike_max_mult * S_spot
-    min_T = min_days_to_expiry / 365.0
+init_state()
 
-    for exp in expiries:
-        T = compute_T_years(exp, today=today)
-        if T < min_T:
-            stats["dropped_bad_T"] += 1
-            continue
+# =========================================================
+# Helpers
+# =========================================================
+def reset_surface():
+    st.session_state["vol_surface_df"] = None
+    st.session_state["vol_surface_mat"] = None
+    st.session_state["vol_surface_meta"] = None
 
-        chain = t.option_chain(exp)
-        df_chain = chain.calls if option_side == "call" else chain.puts
+def signature(*items):
+    # signature légère pour détecter changements majeurs
+    return str(items)
 
-        # Parcours lignes
-        for i in range(len(df_chain)):
-            stats["rows_seen"] += 1
 
-            K = float(df_chain["strike"].iloc[i])
-            if (K <= 0) or (K < K_min) or (K > K_max):
-                stats["dropped_bad_strike"] += 1
-                continue
+# =========================================================
+# A) Choix source + paramètres globaux
+# =========================================================
+source = st.radio(
+    "Source de données",
+    ["A) Données simulées", "B) Yahoo Finance (réel)"],
+    horizontal=True
+)
 
-            bid = float(df_chain["bid"].iloc[i]) if "bid" in df_chain.columns else np.nan
-            ask = float(df_chain["ask"].iloc[i]) if "ask" in df_chain.columns else np.nan
-            last = float(df_chain["lastPrice"].iloc[i]) if "lastPrice" in df_chain.columns else np.nan
+colL, colR = st.columns(2)
+with colL:
+    r = st.number_input("r (Taux)", value=0.02, step=0.005)
+    option_type = st.selectbox("Type d'option", ["call", "put"])
+    method = st.selectbox("Méthode σ_imp", ["brent", "newton"])
 
-            # Filtre liquidité / quotes
-            if use_mid_only:
-                if (not np.isfinite(bid)) or (not np.isfinite(ask)) or bid <= 0 or ask <= 0:
-                    stats["dropped_bad_quotes"] += 1
-                    continue
-                price_mkt = 0.5 * (bid + ask)
+with colR:
+    sigma0 = st.number_input("σ0 (Newton)", value=0.20, min_value=0.0)
+    sigma_min = st.number_input("σ_min (Brent)", value=1e-6, format="%.8f")
+    sigma_max = st.number_input("σ_max (Brent)", value=5.0)
+
+st.divider()
+
+# =========================================================
+# B) Construction df options (A ou B)
+# =========================================================
+df_opts = None
+S = None
+
+if source.startswith("A)"):
+    st.subheader("A) Génération d'un dataset simulé (marché synthétique)")
+    S = st.number_input("Spot S (simulé)", value=100.0, min_value=1e-6)
+
+    Ks = np.array(
+        st.multiselect(
+            "Strikes K",
+            [80.0, 90.0, 100.0, 110.0, 120.0],
+            default=[80.0, 90.0, 100.0, 110.0, 120.0]
+        ),
+        dtype=float
+    )
+    Ts = np.array(
+        st.multiselect(
+            "Maturités T (années)",
+            [0.25, 0.5, 1.0, 2.0],
+            default=[0.25, 0.5, 1.0, 2.0]
+        ),
+        dtype=float
+    )
+
+    if Ks.size == 0 or Ts.size == 0:
+        st.warning("Choisissez au moins un strike et une maturité.")
+        st.stop()
+
+    # si tu changes ces éléments => reset surface
+    sig = signature("SIM", float(S), tuple(Ks.tolist()), tuple(Ts.tolist()), option_type, float(r), method)
+    if st.session_state["vs_last_signature"] != sig:
+        st.session_state["vs_last_signature"] = sig
+        reset_surface()
+
+    rows = []
+    for T_ in Ts:
+        for K_ in Ks:
+            # vol vraie stylisée (smile + term structure)
+            true_sigma = 0.20 + 0.15 * ((K_ - S) / max(S, 1e-9)) ** 2 + 0.03 * np.sqrt(T_)
+            if option_type == "call":
+                price_mkt = bs_call_price(S, K_, T_, r, true_sigma)
             else:
-                price_mkt = np.nan
-                if np.isfinite(bid) and np.isfinite(ask) and bid > 0 and ask > 0:
-                    price_mkt = 0.5 * (bid + ask)
-                if (not np.isfinite(price_mkt)) or price_mkt <= 0:
-                    price_mkt = last
-
-            if (not np.isfinite(price_mkt)) or (price_mkt <= 0):
-                stats["dropped_bad_price"] += 1
-                continue
-
-            rows.append({"K": float(K), "T": float(T), "price_mkt": float(price_mkt), "type": option_side})
-            stats["kept"] += 1
+                price_mkt = bs_put_price(S, K_, T_, r, true_sigma)
+            rows.append({"K": float(K_), "T": float(T_), "price_mkt": float(price_mkt)})
 
     df_opts = pd.DataFrame(rows)
-    if df_opts.empty:
-        raise ValueError(
-            "Aucun point options après filtres.\n"
-            "→ Essaye d’élargir la fenêtre de strikes, augmenter le nombre d’expiries, "
-            "ou décocher 'mid-only'."
-        )
-
-    return df_opts, S_spot, stats
-
-
-def simulate_options_df(S: float, r: float, option_type: str) -> pd.DataFrame:
-    """
-    Démo robuste : génère un set (K, T, price_mkt) avec des prix positifs
-    (pas forcément arbitrage-free strict, mais stable et utilisable pour construire une surface).
-    """
-    Ks = np.array([0.8, 0.9, 1.0, 1.1, 1.2]) * S
-    Ts = np.array([0.25, 0.5, 1.0, 2.0], dtype=float)
-
-    rows = []
-    for T in Ts:
-        for K in Ks:
-            # vol stylisée (smile + term)
-            true_sigma = 0.20 + 0.15 * ((K - S) / max(S, 1e-9)) ** 2 + 0.03 * np.sqrt(T)
-
-            # prix "marché" simulé via BS pour être cohérent
-            bs = BlackScholesModel()
-            p = OptionParams(S=S, K=float(K), T=float(T), r=float(r), option_type=option_type)
-            price_mkt = bs.price(p, float(true_sigma))
-
-            rows.append({"K": float(K), "T": float(T), "price_mkt": float(max(price_mkt, 0.01)), "type": option_type})
-
-    return pd.DataFrame(rows)
-
-
-# ---------------------------------------------------------------------
-# Inputs globaux + choix source A/B
-# ---------------------------------------------------------------------
-c1, c2, c3 = st.columns(3)
-with c1:
-    S_input = st.number_input("S (Spot) — utilisé pour la simulation", value=100.0, min_value=0.0)
-with c2:
-    r = st.number_input("r (taux) — input utilisateur", value=0.02, step=0.005)
-with c3:
-    method = st.selectbox("Méthode calibration", ["brent", "newton"])
-
-st.divider()
-
-source = st.radio("Source des options", ["A) Simulées", "B) Yahoo Finance"], horizontal=True)
-
-st.subheader("Paramètres calibration")
-cc1, cc2, cc3, cc4 = st.columns(4)
-with cc1:
-    sigma0 = st.number_input("σ0 (Newton)", value=0.20, min_value=0.0)
-with cc2:
-    sigma_min = st.number_input("σ min (Brent)", value=1e-6, format="%.8f")
-with cc3:
-    sigma_max = st.number_input("σ max (Brent)", value=5.0)
-with cc4:
-    option_type_default = st.selectbox("Type (pour simu / fallback)", ["call", "put"])
-
-config = VolSurfaceConfig(method=method, sigma0=sigma0, sigma_min=sigma_min, sigma_max=sigma_max)
-builder = VolSurfaceBuilder(config=config)
-
-st.divider()
-
-
-# ---------------------------------------------------------------------
-# Construire df_opts (A ou B)
-# ---------------------------------------------------------------------
-if source.startswith("A"):
-    st.subheader("A) Jeu simulé")
-    st.write("Démo robuste : génération d’un set d’options simulé puis surface σ_imp(K,T).")
-
-    df_opts = simulate_options_df(S=float(S_input), r=float(r), option_type=option_type_default)
-    S_used = float(S_input)
 
 else:
-    st.subheader("B) Yahoo Finance (options chain)")
-    ticker = st.text_input("Ticker Yahoo (ex: AAPL, MSFT, SPY)", value="AAPL")
-    option_side = st.selectbox("Type d’option à extraire", ["call", "put"])
-    max_expiries = st.slider("Nombre de maturités à extraire", min_value=1, max_value=10, value=5)
+    st.subheader("B) Dataset Yahoo Finance (options réelles)")
+    ticker = st.text_input("Ticker (ex: AAPL, MSFT, ^FCHI)", value="AAPL")
 
-    st.markdown("### Filtres qualité (Yahoo)")
-    q1, q2, q3 = st.columns(3)
-    with q1:
-        use_mid_only = st.checkbox("Utiliser uniquement le mid (bid/ask > 0)", value=True)
-    with q2:
-        min_days = st.slider("Maturité min (jours)", min_value=0, max_value=60, value=7)
-    with q3:
-        strike_window = st.slider("Fenêtre strikes autour de S", 0.3, 2.0, (0.7, 1.3), 0.05)
+    max_exp = st.slider("Nombre max de maturités (expiries) à charger", 1, 12, 6)
+    m_low = st.slider("Moneyness low (K >= low*S)", 0.3, 0.95, 0.7)
+    m_high = st.slider("Moneyness high (K <= high*S)", 1.05, 2.0, 1.3)
 
-    if st.button("Extraire depuis Yahoo"):
+    require_bid_ask = st.checkbox("Exiger bid/ask valides", value=True)
+    min_oi = st.slider("Open interest min", 0, 5000, 0, step=50)
+    min_vol = st.slider("Volume min", 0, 5000, 0, step=50)
+
+    # si tu changes ces éléments => reset surface (car dataset change)
+    sig = signature("YAHOO", ticker, int(max_exp), float(m_low), float(m_high), bool(require_bid_ask),
+                    int(min_oi), int(min_vol), option_type, float(r), method)
+    if st.session_state["vs_last_signature"] != sig:
+        st.session_state["vs_last_signature"] = sig
+        reset_surface()
+
+    cfg_y = YahooSurfaceConfig(
+        ticker=ticker,
+        option_type=option_type,
+        max_expiries=int(max_exp),
+        moneyness_low=float(m_low),
+        moneyness_high=float(m_high),
+        require_bid_ask=bool(require_bid_ask),
+        min_open_interest=int(min_oi),
+        min_volume=int(min_vol),
+    )
+
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        load_btn = st.button("Charger les options Yahoo")
+    with c2:
+        if st.session_state["vs_df_opts"] is not None and st.session_state["vs_S"] is not None:
+            st.success(f"Dataset en mémoire: {len(st.session_state['vs_df_opts'])} options (S≈{st.session_state['vs_S']:.4f})")
+
+    if load_btn:
         try:
-            df_opts, S_spot, stats = yahoo_extract_options(
-                ticker=ticker,
-                option_side=option_side,
-                max_expiries=max_expiries,
-                use_mid_only=use_mid_only,
-                strike_min_mult=float(strike_window[0]),
-                strike_max_mult=float(strike_window[1]),
-                min_days_to_expiry=int(min_days),
-            )
-            st.session_state["df_opts_yahoo"] = df_opts
-            st.session_state["S_used_yahoo"] = float(S_spot)
-            st.session_state["stats_yahoo"] = stats
-            st.success(f"Extraction OK — Spot ~ {S_spot:.4f} — Points gardés: {stats['kept']}")
+            df_loaded, S_loaded = build_yahoo_option_dataset(cfg_y)
+            st.session_state["vs_df_opts"] = df_loaded
+            st.session_state["vs_S"] = float(S_loaded)
+            reset_surface()
+            st.success(f"Dataset chargé ✅ {len(df_loaded)} options. Spot S≈{S_loaded:.4f}")
         except Exception as e:
-            st.error(str(e))
-            st.stop()
+            st.error("Impossible de construire le dataset Yahoo (filtres trop stricts / ticker / connexion).")
+            st.exception(e)
 
-    if "df_opts_yahoo" not in st.session_state:
-        st.warning("Clique sur **Extraire depuis Yahoo** pour charger les options.")
-        st.stop()
-
-    df_opts = st.session_state["df_opts_yahoo"]
-    S_used = st.session_state.get("S_used_yahoo", float("nan"))
-
-    stats = st.session_state.get("stats_yahoo", {})
-    if stats:
-        st.write("**Stats filtres Yahoo :**", stats)
-
-# Affichage entrée standardisée
-st.subheader("Données options (entrée standardisée)")
-st.write(f"Spot utilisé pour la calibration : **S = {S_used:.4f}**")
-st.dataframe(df_opts.head(50), use_container_width=True)
-st.caption(f"Nombre total de points options : {len(df_opts)}")
+    # on lit depuis session_state si présent
+    df_opts = st.session_state["vs_df_opts"]
+    S = st.session_state["vs_S"]
 
 st.divider()
 
+if df_opts is None or S is None:
+    st.info("Construisez un dataset (simulé ou Yahoo) pour continuer.")
+    st.stop()
 
-# ---------------------------------------------------------------------
-# Construire surface σ_imp(K,T)
-# ---------------------------------------------------------------------
-if st.button("Construire σ_imp(K, T)"):
-    if "type" not in df_opts.columns:
-        df_opts = df_opts.copy()
-        df_opts["type"] = option_type_default
+# =========================================================
+# C) Affichage dataset
+# =========================================================
+st.subheader("Dataset d'options")
+st.write(f"Spot utilisé : **S = {float(S):.6f}**")
+st.dataframe(df_opts.head(50))
 
-    try:
-        df_iv = builder.compute_iv_table(df_opts, S=float(S_used), r=float(r), default_type=option_type_default)
-    except Exception as e:
-        st.error(str(e))
-        st.stop()
+st.divider()
 
-    st.subheader("Table σ_imp")
-    st.dataframe(df_iv, use_container_width=True)
+# =========================================================
+# D) Calcul σ_imp
+# =========================================================
+cfg = SurfaceBuildConfig(
+    r=float(r),
+    option_type=option_type,
+    method=method,
+    sigma0=float(sigma0),
+    sigma_min=float(sigma_min),
+    sigma_max=float(sigma_max),
+)
 
-    df_iv_clean = df_iv.dropna(subset=["sigma_imp"])
-    if df_iv_clean.empty:
-        st.error("Tous les points sont NaN après calibration. Essaye d'élargir les bornes σ ou d'ajuster les filtres Yahoo.")
-        st.stop()
+build_btn = st.button("Construire la surface σ_imp (calibration point par point)")
+if build_btn:
+    with st.spinner("Calibration σ_imp en cours..."):
+        df_surface = builder.build_surface(df_opts=df_opts, S=float(S), cfg=cfg)
+        mat = builder.pivot_surface(df_surface)
 
-    surf = builder.pivot_surface(df_iv_clean)
+    st.session_state["vol_surface_df"] = df_surface
+    st.session_state["vol_surface_mat"] = mat
+    st.session_state["vol_surface_meta"] = {"S": float(S), "r": float(r), "option_type": option_type}
+    st.success(f"Surface construite ✅ Points gardés: {len(df_surface)}")
 
-    st.subheader("Matrice σ_imp (T x K)")
-    st.dataframe(surf, use_container_width=True)
+# lecture surface depuis session
+df_surface = st.session_state["vol_surface_df"]
+mat = st.session_state["vol_surface_mat"]
 
-    # Heatmap
-    st.subheader("Heatmap σ_imp")
-    fig_hm = go.Figure(
-        data=go.Heatmap(
-            x=surf.columns.values,
-            y=surf.index.values,
-            z=surf.values,
-            colorbar=dict(title="σ_imp"),
+if df_surface is None or mat is None:
+    st.info("Cliquez sur **Construire la surface σ_imp** pour calculer les volatilités implicites.")
+    st.stop()
+
+# =========================================================
+# E) Affichage surface
+# =========================================================
+st.subheader("Table σ_imp (points)")
+
+df_surface = st.session_state["vol_surface_df"]
+mat = st.session_state["vol_surface_mat"]
+
+if df_surface is None or mat is None:
+    st.info("👉 Construisez d'abord la surface σ_imp en cliquant sur le bouton ci-dessus.")
+    st.stop()
+
+st.subheader("Table σ_imp")
+
+st.dataframe(df_surface.head(50))
+
+st.divider()
+st.subheader("SABR : lissage du smile (par maturité)")
+
+beta = st.slider("β (fixé)", min_value=0.0, max_value=1.0, value=0.5, step=0.1)
+max_iter = st.slider("Itérations max calibration", 50, 500, 200, step=50)
+
+if st.button("Calibrer SABR sur chaque maturité"):
+    cal = SABRCalibrator(beta=float(beta))
+
+    Ts = np.array(mat.index, dtype=float)
+    Ks = np.array(mat.columns, dtype=float)
+
+    sabr_mat = np.full_like(mat.values, np.nan, dtype=float)
+    params_rows = []
+
+    # F approx = S (simplification)
+    S_used = float(st.session_state["vol_surface_meta"]["S"]) if st.session_state["vol_surface_meta"] else float(df_surface["S"].iloc[0])
+    F = S_used
+
+    with st.spinner("Calibration SABR en cours..."):
+        for i, T_ in enumerate(Ts):
+            iv_mkt = mat.values[i, :].astype(float)
+
+            # garder strikes où iv dispo
+            mask = np.isfinite(iv_mkt)
+            Ks_i = Ks[mask]
+            iv_i = iv_mkt[mask]
+
+            if Ks_i.size < 3:
+                continue
+
+            est, loss = cal.calibrate(F=F, Ks=Ks_i, T=float(T_), iv_mkt=iv_i, max_iter=int(max_iter))
+            params_rows.append({"T": float(T_), "alpha": est.alpha, "beta": est.beta, "rho": est.rho, "nu": est.nu, "loss": loss})
+
+            # reconstruire smile sur tous Ks
+            sabr_smile = sabr_iv_vector(F=F, Ks=Ks, T=float(T_), p=est)
+            sabr_mat[i, :] = sabr_smile
+
+    sabr_df_params = pd.DataFrame(params_rows).sort_values("T").reset_index(drop=True)
+    sabr_mat_df = pd.DataFrame(sabr_mat, index=mat.index, columns=mat.columns)
+
+    st.session_state["sabr_params_df"] = sabr_df_params
+    st.session_state["sabr_mat"] = sabr_mat_df
+
+    st.success("SABR calibré ✅")
+
+# affichage si dispo
+if "sabr_mat" in st.session_state and st.session_state["sabr_mat"] is not None:
+    st.subheader("Paramètres SABR par maturité")
+    st.dataframe(st.session_state["sabr_params_df"])
+
+    st.subheader("Matrice σ_SABR (T x K)")
+    st.dataframe(st.session_state["sabr_mat"])
+
+    st.divider()
+    st.subheader("Heatmap σ_SABR")
+
+    sabr_mat_df = st.session_state["sabr_mat"]
+    fig_s = plt.figure()
+    plt.imshow(sabr_mat_df.values, aspect="auto", origin="lower")
+    plt.xticks(ticks=np.arange(sabr_mat_df.shape[1]), labels=[f"{k:.0f}" for k in sabr_mat_df.columns], rotation=45)
+    plt.yticks(ticks=np.arange(sabr_mat_df.shape[0]), labels=[f"{t:.3f}" for t in sabr_mat_df.index])
+    plt.colorbar(label="σ_SABR")
+    plt.xlabel("Strike K")
+    plt.ylabel("Maturité T (années)")
+    plt.title("Heatmap σ_SABR(K,T)")
+    st.pyplot(fig_s)
+
+
+
+
+# =========================================================
+# F) Heatmap
+# =========================================================
+st.divider()
+st.subheader("Heatmap σ_imp")
+
+fig = plt.figure()
+arr = mat.values
+plt.imshow(arr, aspect="auto", origin="lower")
+plt.xticks(ticks=np.arange(mat.shape[1]), labels=[f"{k:.0f}" for k in mat.columns], rotation=45)
+plt.yticks(ticks=np.arange(mat.shape[0]), labels=[f"{t:.3f}" for t in mat.index])
+plt.colorbar(label="σ_imp")
+plt.xlabel("Strike K")
+plt.ylabel("Maturité T (années)")
+plt.title("Heatmap de la volatilité implicite σ_imp(K,T)")
+st.pyplot(fig)
+
+# =========================================================
+# G) Surface 3D (optionnel)
+# =========================================================
+st.divider()
+st.subheader("Surface 3D σ_imp (optionnel)")
+
+show_3d = st.checkbox("Afficher surface 3D", value=False)
+if show_3d:
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+    Ks = np.array(mat.columns, dtype=float)
+    Ts = np.array(mat.index, dtype=float)
+    KK, TT = np.meshgrid(Ks, Ts)
+    ZZ = mat.values
+
+    fig3 = plt.figure()
+    ax = fig3.add_subplot(111, projection="3d")
+    ax.plot_surface(KK, TT, ZZ)
+    ax.set_xlabel("K")
+    ax.set_ylabel("T")
+    ax.set_zlabel("σ_imp")
+    ax.set_title("Surface σ_imp(K,T)")
+    st.pyplot(fig3)
+
+
+st.divider()
+st.subheader("Dupire : volatilité locale σ_loc(K,T)")
+
+use_sabr = False
+if "sabr_mat" in st.session_state and st.session_state["sabr_mat"] is not None:
+    use_sabr = st.checkbox("Utiliser la surface SABR (plus lisse) si disponible", value=True)
+
+mat_iv_used = st.session_state["sabr_mat"] if (use_sabr and "sabr_mat" in st.session_state and st.session_state["sabr_mat"] is not None) else mat
+
+meta = st.session_state.get("vol_surface_meta", None)
+S_used = float(meta["S"]) if meta and "S" in meta else float(df_surface["S"].iloc[0])
+r_used = float(meta["r"]) if meta and "r" in meta else float(r)
+
+c1, c2, c3 = st.columns(3)
+with c1:
+    denom_floor = st.number_input("denom_floor", value=1e-10, format="%.1e")
+with c2:
+    vol_floor = st.number_input("vol_floor", value=1e-6, format="%.1e")
+with c3:
+    vol_cap = st.number_input("vol_cap", value=5.0)
+
+if st.button("Calculer σ_loc via Dupire"):
+    dup = DupireLocalVol()
+    cfg_d = DupireConfig(r=float(r_used), denom_floor=float(denom_floor), vol_floor=float(vol_floor), vol_cap=float(vol_cap))
+
+    with st.spinner("Calcul Dupire en cours..."):
+        mat_C, mat_loc = dup.local_vol_from_iv_surface(
+            S=float(S_used),
+            r=float(r_used),
+            mat_iv=mat_iv_used,
+            cfg=cfg_d
         )
-    )
-    fig_hm.update_layout(xaxis_title="Strike K", yaxis_title="Maturité T")
-    st.plotly_chart(fig_hm, use_container_width=True)
 
-    # Surface 3D (pivot)
-    st.subheader("Surface 3D σ_imp(K,T) (points pivot)")
-    X = surf.columns.values
-    Y = surf.index.values
-    Z = surf.values
+    st.session_state["dupire_call_mat"] = mat_C
+    st.session_state["dupire_locvol_mat"] = mat_loc
+    st.success("σ_loc calculée ✅")
 
-    fig_surf = go.Figure(data=[go.Surface(x=X, y=Y, z=Z)])
-    fig_surf.update_layout(
-        scene=dict(xaxis_title="K", yaxis_title="T", zaxis_title="σ_imp"),
-        margin=dict(l=0, r=0, b=0, t=30),
-    )
-    st.plotly_chart(fig_surf, use_container_width=True)
+if "dupire_locvol_mat" in st.session_state and st.session_state["dupire_locvol_mat"] is not None:
+    mat_loc = st.session_state["dupire_locvol_mat"]
+
+    st.subheader("Matrice σ_loc (T x K)")
+    st.dataframe(mat_loc)
+
+    st.divider()
+    st.subheader("Heatmap σ_loc")
+
+    fig_lv = plt.figure()
+    arr = mat_loc.values
+    plt.imshow(arr, aspect="auto", origin="lower")
+    plt.xticks(ticks=np.arange(mat_loc.shape[1]), labels=[f"{k:.0f}" for k in mat_loc.columns], rotation=45)
+    plt.yticks(ticks=np.arange(mat_loc.shape[0]), labels=[f"{t:.3f}" for t in mat_loc.index])
+    plt.colorbar(label="σ_loc")
+    plt.xlabel("Strike K")
+    plt.ylabel("Maturité T (années)")
+    plt.title("Heatmap de la volatilité locale σ_loc(K,T) (Dupire)")
+    st.pyplot(fig_lv)
+else:
+    st.info("Clique sur **Calculer σ_loc via Dupire** pour afficher la volatilité locale.")

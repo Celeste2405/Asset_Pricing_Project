@@ -1,0 +1,8 @@
+Bonus (super utile) : utiliser σ_imp dans Pricing
+
+Tu veux que Pricing affiche un switch :
+
+✅ “Utiliser σ_imp (session)” → remplace sigma par st.session_state["sigma_imp"]
+
+Si tu veux, je te donne aussi ce petit patch (10 lignes) pour Pricing, mais dis-moi juste :
+👉 tu veux que ça remplace la valeur dans le champ σ automatiquement, ou juste un toggle “σ_effective = σ_imp” ?
