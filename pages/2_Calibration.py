@@ -10,13 +10,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from model.calibration_model import OptionParams, BlackScholesModel, ImpliedVolCalibrator
 from ui.page_docs import show_page_docs
 
-st.set_page_config(page_title="Calibration", layout="wide")
-st.title("2) Calibration : Volatilité implicite (ω_imp / σ_imp)")
+st.set_page_config(page_title="CALIBRATION", layout="wide")
+st.title("Calibration : Volatilité implicite (ω_imp / σ_imp)")
 show_page_docs("calibration")
 
 st.write(
-    "Entrez les paramètres + un **prix marché** et choisissez la méthode de calibration. "
-    "On renvoie **σ_imp** (omega imp)."
+    "Entrez les paramètres et un **prix marché** et choisissez la méthode de calibration. "
+    "L'application renvoie **σ_imp** la volatilité implicite."
 )
 
 # =========================================================
@@ -59,10 +59,10 @@ with col_prefill1:
             if payload_price is not None and "price" in payload_price:
                 st.session_state["calib_market_price"] = float(payload_price["price"])
 
-            st.success("Champs pré-remplis ✅")
+            st.success("Champs pré-remplis")
 
 with col_prefill2:
-    st.caption("Astuce : lance un pricing puis clique ici pour réutiliser les mêmes paramètres.")
+    st.caption("Lancez un pricing puis cliquez ici pour réutiliser les mêmes paramètres.")
 
 st.divider()
 
@@ -91,8 +91,8 @@ with col2:
     sigma_max = st.number_input("σ max (Brent)", value=5.0)
 
 # Optionnel : bruit pédagogique (évite BS-marché = 0 si tu utilises le prix BS comme "marché")
-st.caption("Optionnel : pour une démo, vous pouvez perturber légèrement le prix marché.")
-add_noise = st.checkbox("Ajouter un bruit au prix marché (démo)", value=False)
+st.caption("Optionnel : pour une démonstration, vous pouvez perturber légèrement le prix marché.")
+add_noise = st.checkbox("Ajouter un bruit au prix marché", value=False)
 noise_pct = st.slider("Bruit (%)", 0.0, 5.0, 0.0, step=0.5) / 100.0
 market_price_used = float(market_price) * (1.0 + noise_pct) if add_noise else float(market_price)
 if add_noise and noise_pct > 0:
@@ -142,4 +142,4 @@ if st.button("Calibrer σ_imp"):
         "method": str(method),
     }
 
-    st.success("σ_imp sauvegardée dans la session (réutilisable sur d’autres pages).")
+    st.success("σ_imp sauvegardée dans la session (vous pouvez la réutiliser sur d'autres pages).")

@@ -6,15 +6,15 @@ st.set_page_config(
 )
 
 st.title("Pricing de produits dérivés")
-st.subheader("Application pédagogique de pricing et calibration de produits dérivés")
+st.subheader("Application pédagogique de pricing et calibration de produits dérivés réalisée par Céleste NENEHIDINI, Mariane ALAPINI et Ikram DRINE")
 
 st.write(
     """
-Bienvenue dans le **Pricing de produits dérivés**, une application Streamlit développée dans le cadre du
-cours de **Modélisation et évaluation des produits dérivés (ENSAI 3A)**.
+Bienvenue sur notre application développée dans le cadre du
+cours de **Modélisation et évaluation des produits dérivés**.
 
 Cette application couvre **toute la chaîne de valorisation des options**, depuis le pricing
-jusqu’à la construction de surfaces de volatilité et le traitement d’options exotiques.
+jusqu’à la construction de surfaces de volatilité ainsi que le traitement d’options exotiques.
 """
 )
 
@@ -22,34 +22,34 @@ st.divider()
 
 st.markdown(
     """
-### 📌 Fonctionnalités principales
+### Les fonctionnalités principales
 
 L’application est organisée en **pages indépendantes**, accessibles via le menu latéral :
 
-#### 1️⃣ Pricing
+#### Page 1 : Pricing
 - Pricing d’options **européennes Call / Put**
 - Modèles :
-  - **Black–Scholes** (formule fermée)
-  - **Monte Carlo Vanilla** (GBM, IC 95%)
+  - **Black–Scholes** (avec la formule fermée)
+  - **Monte Carlo Vanilla** (par GBM, et calcul des IC à 95%)
 - Résultats :
   - prix,
   - greeks (analytiques ou numériques),
   - payoff à maturité,
-  - comparaison BS vs MC.
+  - comparaison Black-Scholes vs Monte-Carlo.
 
-#### 2️⃣ Calibration – Volatilité implicite
+#### Page 2 : Calibration – Volatilité implicite
 - Inversion de Black–Scholes à partir d’un **prix de marché**
 - Méthodes :
-  - **Brent** (robuste),
-  - **Newton** (rapide, via Vega)
+  - **Brent**,
+  - **Newton**
 - Sortie :
-  - **σ_imp (ω_imp)**,
+  - **σ_imp**,
   - contrôle de cohérence (BS − marché).
 
-#### 3️⃣ Vol Surface
+#### Page 3 : Vol Surface
 - Construction de la surface **σ_imp(K,T)**
 - Sources :
-  - données **simulées** (démonstration stable),
+  - données **simulées**,
   - données **réelles Yahoo Finance**
 - Visualisations :
   - table,
@@ -59,14 +59,14 @@ L’application est organisée en **pages indépendantes**, accessibles via le m
   - **SABR** (lissage du smile),
   - **Dupire** (volatilité locale).
 
-#### 4️⃣ Options Asiatiques
+#### Page 4 : Options Asiatiques
 - **Moyenne arithmétique** (Monte Carlo)
 - **Moyenne géométrique** :
-  - formule fermée (référence),
+  - formule fermée,
   - Monte Carlo,
   - comparaison MC vs closed-form.
 
-#### 5️⃣ Options Barrières (Knock-Out)
+#### Page 5 : Options Barrières (Knock-Out)
 - Up-and-Out / Down-and-Out
 - Pricing **Monte Carlo discret**
 - Rebate optionnel

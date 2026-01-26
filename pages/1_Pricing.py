@@ -19,13 +19,13 @@ from model.mc_vanilla_model import VanillaOptionParams, VanillaMCPricer
 from model.market_data import list_expiries, get_option_chain, get_spot_price
 from ui.page_docs import show_page_docs
 
-st.set_page_config(page_title="Pricing", layout="wide")
-st.title("1) Pricing du produit (Prix + Greeks + Payoff)")
+st.set_page_config(page_title="PRICING", layout="wide")
+st.title("Pricing du produit")
 show_page_docs("pricing")
 
 pricer_mc = VanillaMCPricer()
 
-# ✅ IMPORTANT : toujours initialiser price_mkt
+# Initialiser price_mkt
 price_mkt = None
 
 # =========================================================
@@ -142,11 +142,11 @@ else:
 
 st.divider()
 
-if st.button("Calculer le prix + greeks + payoff"):
+if st.button("Calculer le prix, les greeks et le payoff"):
     is_call = (option_type == "Call européen")
     opt_type_mc = "call" if is_call else "put"
 
-    # ✅ on sauvegarde toujours les inputs (handoff calibration)
+    # on sauvegarde toujours les inputs (handoff calibration)
     st.session_state["last_pricing_inputs"] = {
         "option_type": "call" if is_call else "put",
         "S": float(S),

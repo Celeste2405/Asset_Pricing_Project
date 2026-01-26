@@ -21,8 +21,8 @@ from model.dupire_model import DupireLocalVol, DupireConfig
 # =========================================================
 # Page config
 # =========================================================
-st.set_page_config(page_title="Vol Surface", layout="wide")
-st.title("3) Vol Surface : σ_imp(K, T)")
+st.set_page_config(page_title="SURFACE DE VOL", layout="wide")
+st.title("3) Surface de volatilité : σ_imp(K, T)")
 show_page_docs("vol_surface")
 
 builder = VolSurfaceBuilder()
@@ -63,7 +63,7 @@ def signature(*items):
 # =========================================================
 source = st.radio(
     "Source de données",
-    ["A) Données simulées", "B) Yahoo Finance (réel)"],
+    ["A) Données simulées", "B) Données réelles Yahoo Finance"],
     horizontal=True
 )
 
@@ -237,7 +237,7 @@ df_surface = st.session_state["vol_surface_df"]
 mat = st.session_state["vol_surface_mat"]
 
 if df_surface is None or mat is None:
-    st.info("👉 Construisez d'abord la surface σ_imp en cliquant sur le bouton ci-dessus.")
+    st.info(" Construisez d'abord la surface σ_imp en cliquant sur le bouton ci-dessus.")
     st.stop()
 
 st.subheader("Table σ_imp")
@@ -288,7 +288,7 @@ if st.button("Calibrer SABR sur chaque maturité"):
     st.session_state["sabr_params_df"] = sabr_df_params
     st.session_state["sabr_mat"] = sabr_mat_df
 
-    st.success("SABR calibré ✅")
+    st.success("SABR calibré avec succès")
 
 # affichage si dispo
 if "sabr_mat" in st.session_state and st.session_state["sabr_mat"] is not None:
@@ -392,7 +392,7 @@ if st.button("Calculer σ_loc via Dupire"):
 
     st.session_state["dupire_call_mat"] = mat_C
     st.session_state["dupire_locvol_mat"] = mat_loc
-    st.success("σ_loc calculée ✅")
+    st.success("σ_loc calculée avec succès")
 
 if "dupire_locvol_mat" in st.session_state and st.session_state["dupire_locvol_mat"] is not None:
     mat_loc = st.session_state["dupire_locvol_mat"]
@@ -414,4 +414,4 @@ if "dupire_locvol_mat" in st.session_state and st.session_state["dupire_locvol_m
     plt.title("Heatmap de la volatilité locale σ_loc(K,T) (Dupire)")
     st.pyplot(fig_lv)
 else:
-    st.info("Clique sur **Calculer σ_loc via Dupire** pour afficher la volatilité locale.")
+    st.info("Cliquez sur **Calculer σ_loc via Dupire** pour afficher la volatilité locale.")
