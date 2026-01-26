@@ -5,7 +5,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🧮 Pricing de produits dérivés")
+st.title("Pricing de produits dérivés")
 st.subheader("Application pédagogique de pricing et calibration de produits dérivés")
 
 st.write(
