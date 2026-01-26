@@ -22,7 +22,7 @@ from model.dupire_model import DupireLocalVol, DupireConfig
 # Page config
 # =========================================================
 st.set_page_config(page_title="SURFACE DE VOL", layout="wide")
-st.title("3) Surface de volatilité : σ_imp(K, T)")
+st.title("Surface de volatilité : σ_imp(K, T)")
 show_page_docs("vol_surface")
 
 builder = VolSurfaceBuilder()
@@ -173,7 +173,7 @@ else:
             st.session_state["vs_df_opts"] = df_loaded
             st.session_state["vs_S"] = float(S_loaded)
             reset_surface()
-            st.success(f"Dataset chargé ✅ {len(df_loaded)} options. Spot S≈{S_loaded:.4f}")
+            st.success(f"Dataset chargé {len(df_loaded)} options. Spot S≈{S_loaded:.4f}")
         except Exception as e:
             st.error("Impossible de construire le dataset Yahoo (filtres trop stricts / ticker / connexion).")
             st.exception(e)
@@ -218,7 +218,7 @@ if build_btn:
     st.session_state["vol_surface_df"] = df_surface
     st.session_state["vol_surface_mat"] = mat
     st.session_state["vol_surface_meta"] = {"S": float(S), "r": float(r), "option_type": option_type}
-    st.success(f"Surface construite ✅ Points gardés: {len(df_surface)}")
+    st.success(f"Surface construite. Points gardés: {len(df_surface)}")
 
 # lecture surface depuis session
 df_surface = st.session_state["vol_surface_df"]

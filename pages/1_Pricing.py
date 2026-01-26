@@ -20,7 +20,7 @@ from model.market_data import list_expiries, get_option_chain, get_spot_price
 from ui.page_docs import show_page_docs
 
 st.set_page_config(page_title="PRICING", layout="wide")
-st.title("Pricing du produit")
+st.title("Pricing de produit")
 show_page_docs("pricing")
 
 pricer_mc = VanillaMCPricer()
