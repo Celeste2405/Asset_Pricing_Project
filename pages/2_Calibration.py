@@ -59,7 +59,7 @@ with col_prefill1:
             if payload_price is not None and "price" in payload_price:
                 st.session_state["calib_market_price"] = float(payload_price["price"])
 
-            st.success("Champs pré-remplis ✅")
+            st.success("Champs pré-remplis depuis Pricing.")
 
 with col_prefill2:
     st.caption("Astuce : lance un pricing puis clique ici pour réutiliser les mêmes paramètres.")

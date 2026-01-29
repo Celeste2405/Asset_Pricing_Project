@@ -25,7 +25,7 @@ show_page_docs("pricing")
 
 pricer_mc = VanillaMCPricer()
 
-# ✅ IMPORTANT : toujours initialiser price_mkt
+# IMPORTANT : toujours initialiser price_mkt
 price_mkt = None
 
 # =========================================================
@@ -146,7 +146,7 @@ if st.button("Calculer le prix + greeks + payoff"):
     is_call = (option_type == "Call européen")
     opt_type_mc = "call" if is_call else "put"
 
-    # ✅ on sauvegarde toujours les inputs (handoff calibration)
+    # on sauvegarde toujours les inputs (handoff calibration)
     st.session_state["last_pricing_inputs"] = {
         "option_type": "call" if is_call else "put",
         "S": float(S),
@@ -164,7 +164,7 @@ if st.button("Calculer le prix + greeks + payoff"):
     if model == "Black-Scholes":
         price = bs_call_price(S, K, T, r, sigma) if is_call else bs_put_price(S, K, T, r, sigma)
 
-        # ✅ save result
+        # save result
         st.session_state["last_pricing_result"] = {"model": "Black-Scholes", "price": float(price)}
 
         st.subheader("Résultat Pricing (Black–Scholes)")
@@ -203,7 +203,7 @@ if st.button("Calculer le prix + greeks + payoff"):
         )
         res = pricer_mc.price(p)
 
-        # ✅ save result
+        #  save result
         st.session_state["last_pricing_result"] = {"model": "Monte Carlo", "price": float(res.price)}
 
         st.subheader("Résultat Pricing (Monte Carlo Vanilla)")
