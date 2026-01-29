@@ -33,7 +33,7 @@ def test_payoff_values():
     assert payoff_put(100, K) == 0
     assert payoff_put(120, K) == 0
 
-    print("✅ Tests scalaires OK")
+    print(" Tests scalaires OK")
 
 def test_payoff_plot():
     K = 100

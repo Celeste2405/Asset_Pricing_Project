@@ -22,7 +22,7 @@ def test_barrier_high_is_like_vanilla_call():
     # if barrier is astronomically high, knockout rate should be ~0
     assert res.details["knockout_rate"] < 1e-4
     assert np.isfinite(res.price) and res.price > 0
-    print("✅ High barrier behaves like vanilla | price:", res.price)
+    print(" High barrier behaves like vanilla | price:", res.price)
 
 
 def test_barrier_low_knocks_out_almost_surely():
@@ -39,7 +39,7 @@ def test_barrier_low_knocks_out_almost_surely():
     # price should be close to discounted rebate
     target = 5.0 * np.exp(-0.02 * 1.0)
     assert abs(res.price - target) < 0.3
-    print("✅ Low barrier KO almost sure | price:", res.price, "| target:", target)
+    print(" Low barrier KO almost sure | price:", res.price, "| target:", target)
 
 
 if __name__ == "__main__":

@@ -36,7 +36,7 @@ def test_dupire_constant_vol_is_constantish():
     assert core.size > 0
     err = np.abs(core - sigma_const)
     assert np.nanmedian(err) < 0.05  # tolérance large (finite diff)
-    print("✅ Dupire constant vol -> local vol ~ constant | median abs err:", float(np.nanmedian(err)))
+    print("Dupire constant vol -> local vol ~ constant | median abs err:", float(np.nanmedian(err)))
 
 
 if __name__ == "__main__":

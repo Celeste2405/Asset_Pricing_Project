@@ -56,7 +56,7 @@ def test_mc_converges_to_bs_call():
 
     # Tolérance MC : à ajuster selon machine/variance (ici assez large mais réaliste)
     assert abs(res.price - bs) < 0.5, f"MC {res.price} vs BS {bs}"
-    print("✅ Convergence MC ~ BS (call)")
+    print("Convergence MC ~ BS (call)")
 
 
 def test_put_call_parity_approx():
@@ -77,7 +77,7 @@ def test_put_call_parity_approx():
     lhs = C - P
 
     assert abs(lhs - rhs) < 0.8, f"lhs {lhs} rhs {rhs}"
-    print("✅ Put-call parity approx (MC)")
+    print(" Put-call parity approx (MC)")
 
 
 def test_greeks_runs():
@@ -86,7 +86,7 @@ def test_greeks_runs():
     g = pricer.greeks_finite_diff(p, eps_S=0.2, eps_sigma=2e-3, eps_r=1e-4, eps_T=1e-3)
     for k in ["price", "delta", "vega", "rho", "theta"]:
         assert np.isfinite(g[k])
-    print("✅ Greeks finite diff OK")
+    print("Greeks finite diff OK")
 
 
 if __name__ == "__main__":

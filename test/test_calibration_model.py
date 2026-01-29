@@ -24,7 +24,7 @@ def test_implied_vol_recovers_true_sigma_call():
     assert abs(sigma_brent - true_sigma) < 1e-6
     assert abs(sigma_newton - true_sigma) < 1e-6
 
-    print("✅ CALL: Brent & Newton retrouvent sigma vrai")
+    print("CALL: Brent & Newton retrouvent sigma vrai")
 
 
 def test_implied_vol_price_check_put():

@@ -13,7 +13,7 @@ def test_hagan_iv_finite():
     p = SABRParams(alpha=0.2, beta=0.5, rho=-0.2, nu=0.8)
     v = hagan_lognormal_iv(F=100, K=100, T=1.0, p=p)
     assert np.isfinite(v) and v > 0
-    print("✅ Hagan ATM vol finite")
+    print(" Hagan ATM vol finite")
 
 
 def test_calibration_runs_on_synthetic():
@@ -31,7 +31,7 @@ def test_calibration_runs_on_synthetic():
     assert np.isfinite(loss)
     assert est.alpha > 0 and est.nu > 0
     assert -1 < est.rho < 1
-    print("✅ Calibration synthetic ok | loss:", loss)
+    print(" Calibration synthetic ok | loss:", loss)
 
 
 if __name__ == "__main__":

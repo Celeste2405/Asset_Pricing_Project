@@ -39,11 +39,11 @@ def test_constant_sigma_surface_recovers_sigma():
     # Vérif numérique : moyenne des erreurs sur sigma_imp
     err = np.nanmean(np.abs(df_iv["sigma_imp"].to_numpy() - true_sigma))
     assert err < 1e-6, f"Erreur moyenne trop grande: {err}"
-    print("✅ Surface sigma constant : sigma_imp retrouvé")
+    print("Surface sigma constant : sigma_imp retrouvé")
 
     surf = builder.pivot_surface(df_iv)
     assert surf.shape == (len(Ts), len(Ks))
-    print("✅ Pivot surface (T x K) OK")
+    print("Pivot surface (T x K) OK")
 
 
 def test_nonconstant_sigma_surface_sanity():
@@ -75,7 +75,7 @@ def test_nonconstant_sigma_surface_sanity():
     df_iv = builder.compute_iv_table(df_opts, S=S, r=r)
 
     assert df_iv["sigma_imp"].notna().any(), "Tout est NaN -> calibration ratée"
-    print("✅ Surface non-constante : sigma_imp calculée (au moins partiellement)")
+    print(" Surface non-constante : sigma_imp calculée (au moins partiellement)")
 
     # Interpolation sur grille plus fine
     K_grid = np.linspace(Ks.min(), Ks.max(), 25)
@@ -83,7 +83,7 @@ def test_nonconstant_sigma_surface_sanity():
     KK, TT, SIG = builder.interpolate_surface(df_iv, K_grid=K_grid, T_grid=T_grid, method="linear")
 
     assert KK.shape == TT.shape == SIG.shape
-    print("✅ Interpolation OK")
+    print(" Interpolation OK")
 
 
 if __name__ == "__main__":

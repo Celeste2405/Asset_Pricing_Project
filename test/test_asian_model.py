@@ -63,7 +63,7 @@ def test_greeks_finite_diff_runs():
     g = pricer.greeks_finite_diff(p, eps_S=0.2, eps_sigma=2e-3)
     for k in ["price", "delta", "vega", "rho", "theta"]:
         assert np.isfinite(g[k])
-    print("✅ Greeks finite diff calculés (valeurs finies)")
+    print(" Greeks finite diff calculés (valeurs finies)")
 
 
 if __name__ == "__main__":

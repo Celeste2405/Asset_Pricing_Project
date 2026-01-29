@@ -29,7 +29,7 @@ def test_geom_asian_mc_matches_closed_form_reasonably():
     # Doit être dans quelques std errors
     diff = abs(mc.price - cf)
     assert diff < 6.0 * mc.stderr
-    print("✅ MC close to closed-form | cf:", cf, "| mc:", mc.price, "| stderr:", mc.stderr)
+    print(" MC close to closed-form | cf:", cf, "| mc:", mc.price, "| stderr:", mc.stderr)
 
 
 if __name__ == "__main__":
