@@ -12,8 +12,8 @@ from ui.page_docs import show_page_docs
 from model.barrier_mc_model import BarrierParams, BarrierMCPricer
 
 
-st.set_page_config(page_title="Barrier Options", layout="wide")
-st.title("5) Options Barrière (Knock-Out) — Monte Carlo")
+st.set_page_config(page_title="Options Barrières", layout="wide")
+st.title("Options Barrière (Knock-Out) — Monte Carlo")
 show_page_docs("barrier")
 
 pricer = BarrierMCPricer()
@@ -82,7 +82,7 @@ if st.button("Pricer l'option barrière"):
     )
 
     st.divider()
-    st.subheader("Schéma payoff (qualitatif)")
+    st.subheader("Schéma payoff")
 
     # Payoff vs ST (en réalité dépend du path, donc ce plot est une intuition)
     ST_grid = np.linspace(0.2 * S, 1.8 * S, 400)

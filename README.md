@@ -106,7 +106,7 @@ Asset_Pricing_Project/
 
 ## 🖥️ Description des interfaces Streamlit
 
-### 1️⃣ **Pricing**
+### 1. **Pricing**
 
 * Choix :
 
@@ -121,7 +121,7 @@ Asset_Pricing_Project/
 
 ---
 
-### 2️⃣ **Calibration – Volatilité implicite**
+### 2. **Calibration – Volatilité implicite**
 
 * Entrée :
 
@@ -135,16 +135,16 @@ Asset_Pricing_Project/
 
 ---
 
-### 3️⃣ **Vol Surface**
+###  3. **Surface de Volatilité**
 
 Deux sources possibles :
 
-#### 🅰️ Données simulées
+#### A. Données simulées
 
 * Jeu d’options cohérent et stable.
 * Idéal pour démonstration pédagogique.
 
-#### 🅱️ Données réelles (Yahoo Finance)
+#### B. Données réelles (Yahoo Finance)
 
 * Extraction automatique via `yfinance`.
 * Filtres de qualité :
@@ -164,7 +164,7 @@ Deux sources possibles :
 
 ---
 
-### 4️⃣ **Options asiatiques (géométriques)**
+### 4. **Options asiatiques (géométriques)**
 
 * Closed-form (référence théorique).
 * Monte Carlo (validation numérique).
@@ -173,7 +173,7 @@ Deux sources possibles :
 
 ---
 
-### 5️⃣ **Options barrières (Knock-Out)**
+### 5. **Options barrières (Knock-Out)**
 
 * Up-and-Out / Down-and-Out.
 * Monte Carlo discret.
@@ -186,7 +186,7 @@ Deux sources possibles :
 
 ---
 
-## 🧪 Tests
+##  Tests
 
 Chaque module clé est testé indépendamment :
 
@@ -207,15 +207,15 @@ python tests/test_barrier_mc_model.py
 
 ---
 
-## ⚙️ Installation & lancement
+##  Installation & lancement
 
-### 1️⃣ Installer les dépendances
+### 1. Installer les dépendances
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2️⃣ Lancer l’application
+### 2. Lancer l’application
 
 ```bash
 python -m streamlit run app.py

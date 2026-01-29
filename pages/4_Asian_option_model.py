@@ -3,8 +3,8 @@ from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="Asian Options", layout="wide")
-st.title("4) Options Asiatiques — Moyenne Arithmétique & Géométrique")
+st.set_page_config(page_title="Options asiatiques", layout="wide")
+st.title("Options Asiatiques — Moyenne Arithmétique & Géométrique")
 
 # ------------------------------------------------------------
 # Setup imports safely (évite page blanche)
