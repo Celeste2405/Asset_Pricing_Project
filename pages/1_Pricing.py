@@ -88,7 +88,7 @@ with col1:
             st.stop()
 
         if df_chain.empty:
-            st.warning("Aucune option ne passe les filtres. Essayez de relâcher les filtres.")
+            st.warning("Aucune option ne passe les filtres. Essayez de relâcher les filtres ou décochez Exiger bid/ask valides (plus propre).")
             st.stop()
 
         strikes = df_chain["K"].astype(float).tolist()
