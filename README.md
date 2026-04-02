@@ -5,7 +5,7 @@
 
 ---
 
-## 🎯 Objectif du projet
+## Objectif du projet
 
 L’objectif de ce projet est de **concevoir une application pédagogique et modulaire de pricing de produits dérivés**, permettant de couvrir **l’ensemble de la chaîne de valorisation** :
 
@@ -30,14 +30,14 @@ L’application est développée avec **Streamlit** et organisée selon une **s�
   * analytiques (Black–Scholes),
   * par différences finies (Monte Carlo)
 
-### 🔹 Calibration
+### Calibration
 
 * **Volatilité implicite σ_imp (ω_imp)** :
 
   * méthode de **Brent** (robuste),
   * méthode de **Newton** (rapide, via Vega).
 
-### 🔹 Volatilité
+###  Volatilité
 
 * **Surface de volatilité implicite σ(K,T)** :
 
@@ -63,7 +63,7 @@ L’application est développée avec **Streamlit** et organisée selon une **s�
 
 ---
 
-## 🗂️ Structure du projet
+## Structure du projet
 
 ```
 Asset_Pricing_Project/
